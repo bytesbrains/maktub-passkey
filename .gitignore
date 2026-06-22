@@ -1,0 +1,23 @@
+# Dart/Flutter
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+pubspec.lock
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/flutter_export_environment.sh
+*.xcworkspace
+
+# Android
+android/.gradle/
+android/local.properties
+.gradle/
+
+# Misc
+.DS_Store
+*.iml
+.idea/
