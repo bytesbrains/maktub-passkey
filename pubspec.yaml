@@ -1,13 +1,20 @@
 name: maktub_passkey
 description: >-
-  Passkey (WebAuthn / P-256) credential create + assert, plus the WebAuthn PRF
-  (hmac-secret) extension — the native shim that lets a Maktub smartWallet
-  reproduce its ECIES reading key from the passkey (#301).
-version: 0.0.1
-# In-repo path dependency for now (consumed by mobile/). May publish to pub.dev
-# once the native PRF impl lands + clears real-device QA — see README.
-publish_to: "none"
-repository: https://github.com/nandal/maktub/tree/main/maktub_passkey
+  WebAuthn passkey create/assert plus the PRF (hmac-secret) extension for
+  Flutter — derive a stable per-credential secret from a synced passkey on
+  iOS and Android. The PRF API the common passkey plugins don't expose.
+# Pre-release: PRF cross-device stability is not yet verified on real hardware
+# (see README). Published for discovery/early integration; `^` constraints will
+# NOT auto-adopt a pre-release, so adoption is deliberate until a stable 0.1.0.
+version: 0.1.0-dev.1
+repository: https://github.com/bytesbrains/maktub-passkey
+issue_tracker: https://github.com/bytesbrains/maktub-passkey/issues
+homepage: https://maktub.it
+topics:
+  - passkey
+  - webauthn
+  - prf
+  - authentication
 
 environment:
   sdk: ^3.11.4

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-dev.1
+
+- First public **pre-release** to pub.dev. API + native iOS/Android PRF impls as
+  below. **Experimental:** PRF cross-device stability is unverified on real
+  hardware — the plugin is fail-closed where PRF is absent/device-bound/unsynced.
+  `^` constraints will not auto-adopt a pre-release; adoption is deliberate until
+  a stable `0.1.0`.
+
 ## 0.0.1 (unreleased)
 
 - Dart facade (`MaktubPasskey` — `probePrf` / `create` / `assertWithPrf`) over a

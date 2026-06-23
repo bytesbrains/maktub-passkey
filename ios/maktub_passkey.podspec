@@ -9,8 +9,8 @@ Pod::Spec.new do |s|
 Native shim for passkey (WebAuthn/P-256) create + assert and the PRF extension,
 used to reproduce a Maktub smartWallet reading key from the passkey (#301).
                        DESC
-  s.homepage         = 'https://github.com/nandal/maktub'
-  s.license          = { :type => 'MIT', :file => '../LICENSE.md' }
+  s.homepage         = 'https://github.com/bytesbrains/maktub-passkey'
+  s.license          = { :type => 'MIT', :file => '../LICENSE' }
   s.author           = { 'Maktub Protocol' => 'dev@maktub.it' }
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*'

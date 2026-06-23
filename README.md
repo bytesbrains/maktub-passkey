@@ -1,9 +1,20 @@
 # maktub_passkey
 
 Passkey (WebAuthn / P-256) **create + assert**, plus the WebAuthn **PRF
-(`hmac-secret`) extension** — the native shim that lets a Maktub `smartWallet`
-**reproduce its ECIES reading key from the passkey**, so a new phone can read
-already-received letters.
+(`hmac-secret`) extension** — the native shim that lets an app **derive a stable
+per-credential secret from a synced passkey**, e.g. to reproduce an encryption
+key on a new device. The PRF API the common Flutter passkey plugins don't expose.
+
+> ⚠️ **EXPERIMENTAL (pre-release).** The native iOS (`AuthenticationServices`,
+> iOS 18+) and Android (`androidx.credentials`, API 28+) PRF impls are
+> implemented and unit/simulator-tested, but the **cross-device stability of the
+> PRF output** — the property that the *same* secret comes back on a second
+> *synced* device — is **not yet verified on real hardware**. The plugin is
+> **fail-closed**: where PRF is unavailable, device-bound, or not synced it
+> reports unrecoverable rather than returning a key that can't be reproduced.
+> **Do not assume cross-device recovery until you've validated it on your own
+> synced devices.** Supported today: iOS 18+, Android (API 28+). Tracking the
+> hardware validation in the repo's issues.
 
 > **Status: native impl landed (#306), unverified on-device.** The Dart API, a
 > swappable `MaktubPasskeyPlatform`, and the native iOS (`AuthenticationServices`,
