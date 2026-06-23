@@ -1,0 +1,6 @@
+# maktub-passkey secret-scanning config — keeps ALL default gitleaks rules.
+# No allowlist entries: this package is pure WebAuthn PRF plumbing and carries
+# no secrets, test vectors, or contract-address files. Add narrow [[allowlists]]
+# here only if a genuine false positive ever appears.
+[extend]
+useDefault = true

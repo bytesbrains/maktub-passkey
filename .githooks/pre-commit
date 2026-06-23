@@ -1,0 +1,14 @@
+#!/bin/sh
+# maktub-passkey: secret-scanning pre-commit gate.
+# Versioned so it travels with the repo. Enable in a fresh clone with:
+#     git config core.hooksPath .githooks
+# (git never auto-installs hooks, for security — this one-time opt-in is required.)
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --no-banner || {
+    echo "✖ gitleaks found a potential secret in your staged changes — commit blocked." >&2
+    echo "  Review above. If it is a false positive, allowlist it in .gitleaks.toml." >&2
+    exit 1
+  }
+else
+  echo "warning: gitleaks not installed — secret scan skipped. Install: brew install gitleaks" >&2
+fi

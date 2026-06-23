@@ -106,6 +106,18 @@ maktub_passkey/
 
 Consumed by `mobile/` as a path dependency (#307). License: MIT.
 
+## Development
+
+After cloning, enable the secret-scanning pre-commit hook (one-time; git never
+auto-installs hooks):
+
+```sh
+git config core.hooksPath .githooks   # runs `gitleaks protect --staged` on every commit
+brew install gitleaks                 # if not already installed
+```
+
+The hook blocks any commit that stages a detected secret. Config: `.gitleaks.toml`.
+
 ## See also
 
 - **maktub#304** — reading-key derivation & recovery spec (canonical).
