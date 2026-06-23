@@ -15,45 +15,44 @@
 /// the fail-closed creation gate (Maktub's `probePasskeyPrf()` seam). See the
 /// reading-key spec (maktub#304) and the PRD (#306; umbrella #301).
 ///
-/// **Status: scaffold.** The native iOS/Android PRF implementations are stubbed
-/// fail-closed (PRF reported unavailable) until #301 lands them and a
-/// real-device cross-device QA run passes. Until then the app keeps passkey
-/// account creation gated off.
+/// The actual work is delegated to a [MaktubPasskeyPlatform] — the real native
+/// [MethodChannelMaktubPasskey] in production, a `FakeMaktubPasskey` (in the
+/// test-only `package:maktub_passkey/testing.dart`) under test. The native
+/// iOS/Android PRF impls live behind the method channel (#306); on a simulator
+/// or an unsupported OS they report PRF unavailable, so the app's gate stays
+/// fail-closed.
 library;
 
 import 'package:flutter/services.dart';
 
+import 'src/platform.dart';
 import 'src/types.dart';
 
+export 'src/platform.dart' show MaktubPasskeyPlatform, MethodChannelMaktubPasskey;
 export 'src/types.dart';
 
 class MaktubPasskey {
-  MaktubPasskey({MethodChannel? channel})
-      : _channel = channel ?? const MethodChannel('it.maktub.passkey');
+  /// Uses the ambient [MaktubPasskeyPlatform.instance] by default. A specific
+  /// [platform] (e.g. a fake) or a custom [channel] may be supplied — the
+  /// channel form preserves the original constructor for existing callers.
+  MaktubPasskey({MaktubPasskeyPlatform? platform, MethodChannel? channel})
+      : assert(platform == null || channel == null,
+            'pass either a platform or a channel, not both'),
+        _platform = platform ??
+            (channel != null
+                ? MethodChannelMaktubPasskey(channel: channel)
+                : null);
 
-  final MethodChannel _channel;
+  /// Resolved lazily so a test that swaps [MaktubPasskeyPlatform.instance]
+  /// after constructing still sees the swap.
+  final MaktubPasskeyPlatform? _platform;
+  MaktubPasskeyPlatform get _p => _platform ?? MaktubPasskeyPlatform.instance;
 
   /// Capability probe only — does the platform support PRF, and is the active
   /// credential backup-eligible/synced? Fails closed: any error or absence ⇒
   /// [PrfCapability.unavailable].
-  Future<PrfCapability> probePrf({required String relyingPartyId}) async {
-    try {
-      final r = await _channel.invokeMapMethod<String, dynamic>(
-        'probePrf',
-        {'rpId': relyingPartyId},
-      );
-      if (r == null) return const PrfCapability.unavailable();
-      return PrfCapability(
-        prfSupported: r['prfSupported'] == true,
-        backupEligible: r['backupEligible'] == true,
-        backupState: r['backupState'] == true,
-      );
-    } on PlatformException {
-      return const PrfCapability.unavailable();
-    } on MissingPluginException {
-      return const PrfCapability.unavailable();
-    }
-  }
+  Future<PrfCapability> probePrf({required String relyingPartyId}) =>
+      _p.probePrf(relyingPartyId: relyingPartyId);
 
   /// Create a passkey credential **with the PRF extension enabled**, so PRF can
   /// be evaluated against it later. Throws [MaktubPasskeyException] on failure.
@@ -63,24 +62,14 @@ class MaktubPasskey {
     required String userName,
     required Uint8List userId,
     required Uint8List challenge,
-  }) async {
-    final r = await _invoke('create', {
-      'rpId': relyingPartyId,
-      'rpName': relyingPartyName,
-      'userName': userName,
-      'userId': userId,
-      'challenge': challenge,
-    });
-    return PasskeyCreation(
-      credentialId: r['credentialId'] as String,
-      publicKeyDer: r['publicKeyDer'] as Uint8List,
-      capability: PrfCapability(
-        prfSupported: r['prfSupported'] == true,
-        backupEligible: r['backupEligible'] == true,
-        backupState: r['backupState'] == true,
-      ),
-    );
-  }
+  }) =>
+      _p.create(
+        relyingPartyId: relyingPartyId,
+        relyingPartyName: relyingPartyName,
+        userName: userName,
+        userId: userId,
+        challenge: challenge,
+      );
 
   /// Get an assertion AND evaluate PRF with [prfSalt] (the fixed 32-byte
   /// `eval.first`), returning the signature plus the 32-byte PRF output.
@@ -89,39 +78,11 @@ class MaktubPasskey {
     required Uint8List challenge,
     required Uint8List prfSalt,
     String? credentialId,
-  }) async {
-    final r = await _invoke('assertWithPrf', {
-      'rpId': relyingPartyId,
-      'challenge': challenge,
-      'prfSalt': prfSalt,
-      'credentialId': credentialId,
-    });
-    final prf = r['prfOutput'];
-    return PasskeyAssertion(
-      signature: r['signature'] as Uint8List,
-      authenticatorData: r['authenticatorData'] as Uint8List,
-      clientDataJson: r['clientDataJson'] as Uint8List,
-      prfOutput: prf is Uint8List ? prf : null,
-    );
-  }
-
-  Future<Map<String, dynamic>> _invoke(
-    String method,
-    Map<String, dynamic> args,
-  ) async {
-    try {
-      final r = await _channel.invokeMapMethod<String, dynamic>(method, args);
-      if (r == null) {
-        throw const MaktubPasskeyException('null-result', 'no result');
-      }
-      return r;
-    } on PlatformException catch (e) {
-      throw MaktubPasskeyException(e.code, e.message ?? 'platform error');
-    } on MissingPluginException {
-      throw const MaktubPasskeyException(
-        'not-implemented',
-        'maktub_passkey native side not implemented on this platform (#301)',
+  }) =>
+      _p.assertWithPrf(
+        relyingPartyId: relyingPartyId,
+        challenge: challenge,
+        prfSalt: prfSalt,
+        credentialId: credentialId,
       );
-    }
-  }
 }

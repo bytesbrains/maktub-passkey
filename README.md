@@ -5,11 +5,15 @@ Passkey (WebAuthn / P-256) **create + assert**, plus the WebAuthn **PRF
 **reproduce its ECIES reading key from the passkey**, so a new phone can read
 already-received letters.
 
-> **Status: scaffold.** The Dart API + MethodChannel plumbing are in place; the
-> native iOS/Android PRF implementations are **stubbed fail-closed** (PRF
-> reported unavailable). Until they land (**#301**) and a real-device
-> cross-device QA run passes, the app keeps passkey account creation gated off —
-> no false "recoverable" claim.
+> **Status: native impl landed (#306), unverified on-device.** The Dart API, a
+> swappable `MaktubPasskeyPlatform`, and the native iOS (`AuthenticationServices`,
+> iOS 18+) / Android (`androidx.credentials`) PRF implementations are all in
+> place. They are **fail-closed where PRF is absent** (older OS, simulator,
+> device-bound credential). Until a **real-device cross-device QA run** passes
+> (the CISO GA blocker), the app keeps passkey account creation gated off — no
+> false "recoverable" claim. A test-only `FakeMaktubPasskey`
+> (`package:maktub_passkey/testing.dart`) drives the app logic in CI; it is
+> compile-excluded from release.
 
 ## Why this exists
 
@@ -81,13 +85,15 @@ final reading = deriveReadingKeyFromPrfOutput(a.prfOutput!); // app/SDK side
 
 ```
 maktub_passkey/
-├── lib/maktub_passkey.dart      # Dart facade + MethodChannel
+├── lib/maktub_passkey.dart      # Dart facade (delegates to the platform)
+├── lib/src/platform.dart        # MaktubPasskeyPlatform + MethodChannel impl
 ├── lib/src/types.dart           # PrfCapability / PasskeyCreation / PasskeyAssertion
-├── ios/                         # podspec + Swift plugin (stub)
-└── android/                     # build.gradle + Kotlin plugin (stub)
+├── lib/testing.dart             # FakeMaktubPasskey (TEST-ONLY, release-excluded)
+├── ios/                         # podspec + Swift plugin (AuthenticationServices)
+└── android/                     # build.gradle + Kotlin plugin (Credential Manager)
 ```
 
-Consumed by `mobile/` as a path dependency once wired (#301). License: MIT.
+Consumed by `mobile/` as a path dependency (#307). License: MIT.
 
 ## See also
 

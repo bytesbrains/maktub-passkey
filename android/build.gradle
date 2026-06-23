@@ -1,17 +1,9 @@
 group = "it.maktub.passkey"
 version = "0.0.1"
 
-buildscript {
-    ext.kotlin_version = "1.9.22"
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath "com.android.tools.build:gradle:8.1.0"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-    }
-}
+// No pinned AGP/Kotlin buildscript classpath here — the plugin inherits the
+// host app's Gradle toolchain (Flutter resolves Android plugins from the
+// embedding project), so it never fights the app's AGP/Kotlin versions (#307).
 
 rootProject.allprojects {
     repositories {
@@ -36,14 +28,17 @@ android {
     }
 
     defaultConfig {
-        // PRF via androidx.credentials needs a recent Credential Manager; the
-        // plugin compiles on the host app's minSdk and gates PRF at runtime.
+        // The plugin compiles on the host app's minSdk; PRF / passkeys need a
+        // recent Credential Manager (API 28+) and are gated at runtime.
         minSdk = 23
     }
 }
 
 dependencies {
-    // The real impl (#301) adds androidx.credentials + credentials-play-services-auth
-    // for the WebAuthn `prf` extension. Omitted from the scaffold.
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    // Credential Manager + the Play Services provider for WebAuthn passkeys and
+    // the `prf` (hmac-secret) extension. PRF/passkeys are gated to API 28+ at
+    // runtime, so the main-thread executor uses Context.getMainExecutor()
+    // (API 28+) directly — no androidx.core dependency needed.
+    implementation "androidx.credentials:credentials:1.3.0"
+    implementation "androidx.credentials:credentials-play-services-auth:1.3.0"
 }

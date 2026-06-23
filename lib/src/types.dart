@@ -39,15 +39,19 @@ class PrfCapability {
 class PasskeyCreation {
   const PasskeyCreation({
     required this.credentialId,
-    required this.publicKeyDer,
+    required this.attestationObject,
     required this.capability,
   });
 
   /// Base64url credential id.
   final String credentialId;
 
-  /// The credential's COSE/DER P-256 public key (for the smart-wallet verifier).
-  final Uint8List publicKeyDer;
+  /// The raw WebAuthn **attestation object** as returned by the platform — NOT
+  /// the bare public key. The smart-wallet verifier needs the COSE P-256 key,
+  /// which must be parsed out of this (`authData → attestedCredentialData →
+  /// COSE key`). That extraction is the userOp-signing-migration step (#307);
+  /// the PRF reading-key path does not read this field.
+  final Uint8List attestationObject;
 
   /// PRF / backup capability observed at creation (the fail-closed gate input).
   final PrfCapability capability;
@@ -61,6 +65,8 @@ class PasskeyAssertion {
     required this.authenticatorData,
     required this.clientDataJson,
     required this.prfOutput,
+    this.backupEligible = false,
+    this.backupState = false,
   });
 
   final Uint8List signature;
@@ -69,6 +75,14 @@ class PasskeyAssertion {
 
   /// 32-byte WebAuthn PRF (`hmac-secret`) output, or null if unavailable.
   final Uint8List? prfOutput;
+
+  /// `BE` flag read from the authenticator-data of THIS assertion — the
+  /// credential is backup-eligible (can sync off-device).
+  final bool backupEligible;
+
+  /// `BS` flag — the credential is currently backed up (synced). BE ∧ BS is the
+  /// recoverability condition the app's fail-closed gate requires.
+  final bool backupState;
 }
 
 /// Raised when the platform passkey/PRF operation fails or is unsupported.

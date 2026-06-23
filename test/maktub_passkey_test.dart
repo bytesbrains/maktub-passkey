@@ -131,14 +131,14 @@ void main() {
     test('maps the result and marshals all args', () async {
       onCall((_) async => {
             'credentialId': 'cred-123',
-            'publicKeyDer': bytes(91, 4),
+            'attestationObject': bytes(91, 4),
             'prfSupported': true,
             'backupEligible': true,
             'backupState': true,
           });
       final c = await doCreate();
       expect(c.credentialId, 'cred-123');
-      expect(c.publicKeyDer.length, 91);
+      expect(c.attestationObject.length, 91);
       expect(c.capability.recoverable, isTrue);
 
       expect(lastCall!.method, 'create');
@@ -209,6 +209,32 @@ void main() {
       expect((m['challenge'] as Uint8List).length, 32);
       expect((m['prfSalt'] as Uint8List)[0], 2);
       expect(m['credentialId'], 'cred-9');
+    });
+
+    test('marshals BE/BS flags; missing flags default to false (defensive)',
+        () async {
+      onCall((_) async => {
+            ...reply(prf: bytes(32)),
+            'backupEligible': true,
+            'backupState': true,
+          });
+      final a = await MaktubPasskey().assertWithPrf(
+        relyingPartyId: 'maktub.it',
+        challenge: bytes(32),
+        prfSalt: bytes(32),
+      );
+      expect(a.backupEligible, isTrue);
+      expect(a.backupState, isTrue);
+
+      // A reply without the flags reads as false, never a phantom recoverable.
+      onCall((_) async => reply(prf: bytes(32)));
+      final b = await MaktubPasskey().assertWithPrf(
+        relyingPartyId: 'maktub.it',
+        challenge: bytes(32),
+        prfSalt: bytes(32),
+      );
+      expect(b.backupEligible, isFalse);
+      expect(b.backupState, isFalse);
     });
 
     test('null prfOutput when native omits it', () async {
