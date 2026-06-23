@@ -1,110 +1,126 @@
 # maktub_passkey
 
-Passkey (WebAuthn / P-256) **create + assert**, plus the WebAuthn **PRF
-(`hmac-secret`) extension** — the native shim that lets an app **derive a stable
-per-credential secret from a synced passkey**, e.g. to reproduce an encryption
-key on a new device. The PRF API the common Flutter passkey plugins don't expose.
+Passkey (WebAuthn / P-256) **create + assert** for Flutter, plus the WebAuthn
+**PRF (`hmac-secret`) extension** — so you can derive a **stable, per-credential
+secret** from a synced passkey and reproduce it on another of the user's devices
+(e.g. to re-derive an encryption key after a device change). It's the PRF API
+the common Flutter passkey plugins don't expose.
 
-> ⚠️ **EXPERIMENTAL (pre-release).** The native iOS (`AuthenticationServices`,
-> iOS 18+) and Android (`androidx.credentials`, API 28+) PRF impls are
-> implemented and unit/simulator-tested, but the **cross-device stability of the
-> PRF output** — the property that the *same* secret comes back on a second
-> *synced* device — is **not yet verified on real hardware**. The plugin is
-> **fail-closed**: where PRF is unavailable, device-bound, or not synced it
-> reports unrecoverable rather than returning a key that can't be reproduced.
-> **Do not assume cross-device recovery until you've validated it on your own
-> synced devices.** Supported today: iOS 18+, Android (API 28+). Tracking the
-> hardware validation in the repo's issues.
+> ⚠️ **EXPERIMENTAL — pre-release (`0.1.x-dev`).** The native iOS
+> (`AuthenticationServices`) and Android (`androidx.credentials`) PRF
+> implementations are in place and unit/simulator-tested, but the **stability of
+> the PRF output across two *synced* devices** — the property that the *same*
+> secret comes back on a second device — is **not yet verified on real
+> hardware**. The plugin is **fail-closed**: where PRF is unavailable,
+> device-bound, or not synced, it reports the credential as unrecoverable rather
+> than returning a secret that can't be reproduced. **Validate cross-device
+> recovery on your own synced devices before relying on it.** Because it's a
+> pre-release, `^` version constraints won't auto-select it — opt in explicitly.
 
-> **Status: native impl landed (#306), unverified on-device.** The Dart API, a
-> swappable `MaktubPasskeyPlatform`, and the native iOS (`AuthenticationServices`,
-> iOS 18+) / Android (`androidx.credentials`) PRF implementations are all in
-> place. They are **fail-closed where PRF is absent** (older OS, simulator,
-> device-bound credential). Until a **real-device cross-device QA run** passes
-> (the CISO GA blocker), the app keeps passkey account creation gated off — no
-> false "recoverable" claim. A test-only `FakeMaktubPasskey`
-> (`package:maktub_passkey/testing.dart`) drives the app logic in CI; it is
-> compile-excluded from release.
+## What it does
 
-## Why this exists
+- **`create`** a platform passkey with the **PRF extension enabled at creation**
+  (PRF can't be retrofitted onto a credential made without it).
+- **`assertWithPrf`** — get an assertion *and* evaluate PRF with a caller-chosen
+  32-byte salt, returning the **32-byte PRF output** plus the credential's
+  backup flags.
+- **`probePrf`** — a capability check (is PRF available, is the credential
+  backup-eligible and synced?).
 
-Maktub's recovery model is **one secret per account** (see the reading-key spec,
-**maktub#304**). A `localKey` account reproduces its reading key from the seed
-or the private key. A passkey (`smartWallet`) account has neither — its
-reproducible secret is the **WebAuthn PRF output**. The `passkeys` plugin we use
-for create/sign exposes **no PRF API**, so this package owns the passkey flow
-*including* PRF.
+The 32-byte output is uniform key material — feed it into your own KDF (HKDF,
+etc.) to derive whatever keys you need. The same `(credential, salt)` yields the
+same output, which is what makes the derived key reproducible on a synced device.
 
-It must own the **whole** flow, not be a PRF-only add-on: PRF has to be
-requested inside the same `makeCredential` (creation) and `getAssertion` (eval)
-calls, so a side-package can't guarantee creation-time `hmac-secret`
-enablement.
+## Platform support
 
-## What it returns (the seam contract)
+| Platform | Min version | Backing API |
+|---|---|---|
+| iOS | 18.0+ | `AuthenticationServices` (`ASAuthorizationPublicKeyCredentialPRF*`) |
+| Android | API 28+ (Credential Manager) | `androidx.credentials` `prf` extension |
 
-The app side (`probePasskeyPrf()` in the mobile app) only needs:
+Below those versions, or on the simulator/emulator (no real authenticator), PRF
+is reported unavailable and the plugin fails closed.
 
+## Install
+
+```yaml
+dependencies:
+  maktub_passkey: ^0.1.0-dev.1   # pre-release: pin explicitly
 ```
-{ prfOutput: 32 bytes, backupEligible: bool, backupState: bool }
-```
 
-The 32-byte PRF output feeds `deriveReadingKeyFromPrfOutput` (already built +
-tested in the app/SDK); the BE/BS flags drive the **fail-closed creation gate**
-(refuse device-bound credentials — they'd strand the user on a new device).
-
-## API
+## Usage
 
 ```dart
+import 'package:maktub_passkey/maktub_passkey.dart';
+
 final pk = MaktubPasskey();
+const rpId = 'example.com'; // your associated domain
 
-// Capability only — does PRF work AND is the credential synced?
-final cap = await pk.probePrf(relyingPartyId: 'maktub.it');
-if (!cap.recoverable) { /* fall back to a recovery-phrase account */ }
+// 1. Capability check — is PRF usable AND is the credential synced?
+final cap = await pk.probePrf(relyingPartyId: rpId);
+if (!cap.recoverable) {
+  // Fall back: no PRF, or the credential is device-bound / not backed up.
+}
 
-// Create a credential WITH PRF enabled.
+// 2. Create a credential WITH PRF enabled.
 final created = await pk.create(
-  relyingPartyId: 'maktub.it', relyingPartyName: 'Maktub',
-  userName: email, userId: userId, challenge: challenge);
+  relyingPartyId: rpId,
+  relyingPartyName: 'Example',
+  userName: 'you@example.com',
+  userId: userIdBytes,        // Uint8List
+  challenge: challengeBytes,  // Uint8List
+);
 
-// Sign AND evaluate PRF → 32-byte output.
+// 3. Sign AND evaluate PRF with a fixed salt → 32-byte output.
 final a = await pk.assertWithPrf(
-  relyingPartyId: 'maktub.it', challenge: challenge, prfSalt: prfSalt);
-final reading = deriveReadingKeyFromPrfOutput(a.prfOutput!); // app/SDK side
+  relyingPartyId: rpId,
+  challenge: challengeBytes,
+  prfSalt: saltBytes,         // your fixed 32-byte salt
+  credentialId: created.credentialId,
+);
+final Uint8List? secret = a.prfOutput; // 32 bytes of key material (or null)
 ```
 
-## Native implementation (the #301 work)
+## Recoverability rule (and why it's fail-closed)
 
-- **iOS 18+** — `AuthenticationServices`:
-  `ASAuthorizationPublicKeyCredentialPRFRegistrationInputs` at create,
-  `…PRFAssertionInputs(inputValues: .init(saltInput1: prfSalt))` at assert →
-  `result.prf.first`.
-- **Android** — `androidx.credentials` (Credential Manager) with the `prf`
-  extension in the request JSON → `clientExtensionResults.prf.results.first`.
-- Both report PRF support + the **BE/BS** backup flags for the gate.
+A derived secret only reproduces on a new device if the **credential itself
+syncs** there. So `PrfCapability.recoverable` requires **all** of:
 
-## Hard constraints (don't skip)
+- PRF supported, **and**
+- `backupEligible` (BE) — the credential can sync off-device, **and**
+- `backupState` (BS) — it is currently backed up / synced.
 
-- **Native code on both platforms → unverifiable in the simulator e2e harness.**
-  Requires a **real-device cross-device PRF QA run** (iOS↔iOS and Android)
-  before the app flips `kPasskeyAccountsEnabled` on. This is the CISO GA blocker.
-- **Fail-closed:** if PRF isn't enabled, or the credential is device-bound
-  (`BE=0`), report unavailable — never derive a key that can't be reproduced.
-- PRF output stability across synced devices is spec-intended; the QA run
-  proves it.
+A device-bound credential (`BE = 0`) "works" locally but would strand the user
+on a new device — so the plugin treats it as **not** recoverable. It never
+returns a secret it can't promise to reproduce.
+
+## Testing
+
+The package ships a deterministic, **test-only** fake so you can exercise your
+logic without a device:
+
+```dart
+import 'package:maktub_passkey/testing.dart';
+
+// Inject a deterministic PRF keyed by a `syncedSeed`; two fakes with the same
+// seed model two synced devices. (Asserts !kReleaseMode; never use in app code.)
+MaktubPasskeyPlatform.instance = FakeMaktubPasskey(syncedSeed: seed);
+```
+
+> The fake **demonstrates your logic**; it cannot *prove* the platform property
+> that real hardware returns a stable PRF across synced devices. That still
+> requires a real two-device run.
 
 ## Layout
 
 ```
-maktub_passkey/
-├── lib/maktub_passkey.dart      # Dart facade (delegates to the platform)
-├── lib/src/platform.dart        # MaktubPasskeyPlatform + MethodChannel impl
-├── lib/src/types.dart           # PrfCapability / PasskeyCreation / PasskeyAssertion
-├── lib/testing.dart             # FakeMaktubPasskey (TEST-ONLY, release-excluded)
-├── ios/                         # podspec + Swift plugin (AuthenticationServices)
-└── android/                     # build.gradle + Kotlin plugin (Credential Manager)
+lib/maktub_passkey.dart   Dart facade (delegates to the platform)
+lib/src/platform.dart     MaktubPasskeyPlatform + MethodChannel impl
+lib/src/types.dart        PrfCapability / PasskeyCreation / PasskeyAssertion
+lib/testing.dart          FakeMaktubPasskey (TEST-ONLY, release-excluded)
+ios/                      podspec + Swift plugin (AuthenticationServices)
+android/                  build.gradle + Kotlin plugin (Credential Manager)
 ```
-
-Consumed by `mobile/` as a path dependency (#307). License: MIT.
 
 ## Development
 
@@ -112,14 +128,18 @@ After cloning, enable the secret-scanning pre-commit hook (one-time; git never
 auto-installs hooks):
 
 ```sh
-git config core.hooksPath .githooks   # runs `gitleaks protect --staged` on every commit
+git config core.hooksPath .githooks   # runs `gitleaks protect --staged` on commit
 brew install gitleaks                 # if not already installed
 ```
 
-The hook blocks any commit that stages a detected secret. Config: `.gitleaks.toml`.
+## About
 
-## See also
+Maintained by **[BytesBrains](https://pub.dev/publishers/bytesbrains.com/packages)**
+as part of the **[Maktub](https://maktub.it)** ecosystem — a protocol for
+delivering end-to-end-encrypted messages on a timer, to the people they're
+written for. This plugin is the passkey/PRF building block that lets a Maktub
+account re-derive its encryption key from a synced passkey; it's published
+standalone because the capability is useful to any Flutter app that wants
+passkey-derived secrets.
 
-- **maktub#304** — reading-key derivation & recovery spec (canonical).
-- **#306** — this package's PRD / build spec (native PRF impl + integration + QA gate).
-- **#301** — umbrella issue (native PRF / re-enable passkey accounts).
+License: **MIT**.
