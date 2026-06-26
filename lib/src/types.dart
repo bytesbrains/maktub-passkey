@@ -30,9 +30,9 @@ class PrfCapability {
   bool get deviceBound => !backupEligible;
 
   const PrfCapability.unavailable()
-      : prfSupported = false,
-        backupEligible = false,
-        backupState = false;
+    : prfSupported = false,
+      backupEligible = false,
+      backupState = false;
 }
 
 /// A freshly created passkey credential, with whether PRF was enabled on it.

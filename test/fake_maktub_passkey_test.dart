@@ -54,62 +54,71 @@ void main() {
       expect(discoverable.userHandle, 'user-42');
     });
 
-    test('same syncedSeed + same salt → identical PRF (new-device recovery)',
-        () async {
-      final seed = Uint8List.fromList(List<int>.filled(32, 0x5A));
-      Future<Uint8List?> evalOn(FakeMaktubPasskey f) async => (await f
-              .assertWithPrf(
-                  relyingPartyId: 'maktub.it',
-                  challenge: Uint8List(32),
-                  prfSalt: salt))
-          .prfOutput;
+    test(
+      'same syncedSeed + same salt → identical PRF (new-device recovery)',
+      () async {
+        final seed = Uint8List.fromList(List<int>.filled(32, 0x5A));
+        Future<Uint8List?> evalOn(FakeMaktubPasskey f) async =>
+            (await f.assertWithPrf(
+              relyingPartyId: 'maktub.it',
+              challenge: Uint8List(32),
+              prfSalt: salt,
+            )).prfOutput;
 
-      final deviceA = await evalOn(FakeMaktubPasskey(syncedSeed: seed));
-      final deviceB = await evalOn(FakeMaktubPasskey(syncedSeed: seed));
-      expect(deviceB, equals(deviceA)); // synced → reproduces
-    });
+        final deviceA = await evalOn(FakeMaktubPasskey(syncedSeed: seed));
+        final deviceB = await evalOn(FakeMaktubPasskey(syncedSeed: seed));
+        expect(deviceB, equals(deviceA)); // synced → reproduces
+      },
+    );
 
     test('different syncedSeed → different PRF output', () async {
-      Future<Uint8List?> eval(int fill) async => (await FakeMaktubPasskey(
-                  syncedSeed: Uint8List.fromList(List<int>.filled(32, fill)))
-              .assertWithPrf(
-                  relyingPartyId: 'maktub.it',
-                  challenge: Uint8List(32),
-                  prfSalt: salt))
-          .prfOutput;
+      Future<Uint8List?> eval(int fill) async =>
+          (await FakeMaktubPasskey(
+            syncedSeed: Uint8List.fromList(List<int>.filled(32, fill)),
+          ).assertWithPrf(
+            relyingPartyId: 'maktub.it',
+            challenge: Uint8List(32),
+            prfSalt: salt,
+          )).prfOutput;
       expect(await eval(1), isNot(equals(await eval(2))));
     });
 
     test('different salt → different PRF output (salt-sensitive)', () async {
       final fake = FakeMaktubPasskey();
-      Future<Uint8List?> evalSalt(int fill) async => (await fake.assertWithPrf(
-                relyingPartyId: 'maktub.it',
-                challenge: Uint8List(32),
-                prfSalt: Uint8List.fromList(List<int>.filled(32, fill)),
-              ))
-          .prfOutput;
+      Future<Uint8List?> evalSalt(int fill) async =>
+          (await fake.assertWithPrf(
+            relyingPartyId: 'maktub.it',
+            challenge: Uint8List(32),
+            prfSalt: Uint8List.fromList(List<int>.filled(32, fill)),
+          )).prfOutput;
       expect(await evalSalt(3), isNot(equals(await evalSalt(4))));
     });
 
-    test('device-bound capability (BE=0) is not recoverable and yields no PRF',
-        () async {
-      final fake = FakeMaktubPasskey(
-        capability: const PrfCapability(
-            prfSupported: false, backupEligible: false, backupState: false),
-      );
-      final cap = await fake.probePrf(relyingPartyId: 'maktub.it');
-      expect(cap.recoverable, isFalse);
-      final a = await fake.assertWithPrf(
-        relyingPartyId: 'maktub.it',
-        challenge: Uint8List(32),
-        prfSalt: salt,
-      );
-      expect(a.prfOutput, isNull); // no PRF surfaced when unsupported
-    });
+    test(
+      'device-bound capability (BE=0) is not recoverable and yields no PRF',
+      () async {
+        final fake = FakeMaktubPasskey(
+          capability: const PrfCapability(
+            prfSupported: false,
+            backupEligible: false,
+            backupState: false,
+          ),
+        );
+        final cap = await fake.probePrf(relyingPartyId: 'maktub.it');
+        expect(cap.recoverable, isFalse);
+        final a = await fake.assertWithPrf(
+          relyingPartyId: 'maktub.it',
+          challenge: Uint8List(32),
+          prfSalt: salt,
+        );
+        expect(a.prfOutput, isNull); // no PRF surfaced when unsupported
+      },
+    );
 
     test('failProbe → unavailable without throwing', () async {
-      final cap = await FakeMaktubPasskey(failProbe: true)
-          .probePrf(relyingPartyId: 'maktub.it');
+      final cap = await FakeMaktubPasskey(
+        failProbe: true,
+      ).probePrf(relyingPartyId: 'maktub.it');
       expect(cap.recoverable, isFalse);
     });
 
@@ -126,8 +135,13 @@ void main() {
           userId: Uint8List(16),
           challenge: Uint8List(32),
         ),
-        throwsA(isA<MaktubPasskeyException>()
-            .having((e) => e.code, 'code', 'user-cancelled')),
+        throwsA(
+          isA<MaktubPasskeyException>().having(
+            (e) => e.code,
+            'code',
+            'user-cancelled',
+          ),
+        ),
       );
       expect(
         () => fake.assertWithPrf(
@@ -135,8 +149,9 @@ void main() {
           challenge: Uint8List(32),
           prfSalt: salt,
         ),
-        throwsA(isA<MaktubPasskeyException>()
-            .having((e) => e.code, 'code', 'no-prf')),
+        throwsA(
+          isA<MaktubPasskeyException>().having((e) => e.code, 'code', 'no-prf'),
+        ),
       );
     });
   });

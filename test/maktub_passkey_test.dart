@@ -30,8 +30,8 @@ void main() {
   // ── PrfCapability — the recoverable truth table ───────────────────────────
   group('PrfCapability', () {
     test('recoverable iff PRF supported AND backup-eligible AND backed up', () {
-      PrfCapability cap(bool prf, bool be, bool bs) => PrfCapability(
-          prfSupported: prf, backupEligible: be, backupState: bs);
+      PrfCapability cap(bool prf, bool be, bool bs) =>
+          PrfCapability(prfSupported: prf, backupEligible: be, backupState: bs);
       expect(cap(true, true, true).recoverable, isTrue);
       expect(cap(false, true, true).recoverable, isFalse); // no PRF
       expect(cap(true, false, true).recoverable, isFalse); // not eligible
@@ -42,14 +42,18 @@ void main() {
     test('deviceBound iff not backup-eligible (PRF alone is not enough)', () {
       expect(
         const PrfCapability(
-                prfSupported: true, backupEligible: false, backupState: false)
-            .deviceBound,
+          prfSupported: true,
+          backupEligible: false,
+          backupState: false,
+        ).deviceBound,
         isTrue,
       );
       expect(
         const PrfCapability(
-                prfSupported: true, backupEligible: true, backupState: true)
-            .deviceBound,
+          prfSupported: true,
+          backupEligible: true,
+          backupState: true,
+        ).deviceBound,
         isFalse,
       );
     });
@@ -67,11 +71,13 @@ void main() {
   // ── probePrf — capability, fail-closed everywhere ─────────────────────────
   group('probePrf', () {
     test('maps a full native capability map and sends rpId', () async {
-      onCall((_) async => {
-            'prfSupported': true,
-            'backupEligible': true,
-            'backupState': true,
-          });
+      onCall(
+        (_) async => {
+          'prfSupported': true,
+          'backupEligible': true,
+          'backupState': true,
+        },
+      );
       final cap = await MaktubPasskey().probePrf(relyingPartyId: 'maktub.it');
       expect(cap.recoverable, isTrue);
       expect(lastCall!.method, 'probePrf');
@@ -88,11 +94,13 @@ void main() {
     });
 
     test('non-bool / garbage values are treated as false', () async {
-      onCall((_) async => <String, dynamic>{
-            'prfSupported': 'yes',
-            'backupEligible': 1,
-            'backupState': null,
-          });
+      onCall(
+        (_) async => <String, dynamic>{
+          'prfSupported': 'yes',
+          'backupEligible': 1,
+          'backupState': null,
+        },
+      );
       final cap = await MaktubPasskey().probePrf(relyingPartyId: 'maktub.it');
       expect(cap.recoverable, isFalse);
       expect(cap.prfSupported, isFalse);
@@ -121,21 +129,23 @@ void main() {
   // ── create ────────────────────────────────────────────────────────────────
   group('create', () {
     Future<PasskeyCreation> doCreate() => MaktubPasskey().create(
-          relyingPartyId: 'maktub.it',
-          relyingPartyName: 'Maktub',
-          userName: 'a@b.co',
-          userId: bytes(16, 7),
-          challenge: bytes(32, 9),
-        );
+      relyingPartyId: 'maktub.it',
+      relyingPartyName: 'Maktub',
+      userName: 'a@b.co',
+      userId: bytes(16, 7),
+      challenge: bytes(32, 9),
+    );
 
     test('maps the result and marshals all args', () async {
-      onCall((_) async => {
-            'credentialId': 'cred-123',
-            'attestationObject': bytes(91, 4),
-            'prfSupported': true,
-            'backupEligible': true,
-            'backupState': true,
-          });
+      onCall(
+        (_) async => {
+          'credentialId': 'cred-123',
+          'attestationObject': bytes(91, 4),
+          'prfSupported': true,
+          'backupEligible': true,
+          'backupState': true,
+        },
+      );
       final c = await doCreate();
       expect(c.credentialId, 'cred-123');
       expect(c.attestationObject.length, 91);
@@ -150,24 +160,35 @@ void main() {
       expect((a['challenge'] as Uint8List).length, 32);
     });
 
-    test('PlatformException → MaktubPasskeyException carrying code+message',
-        () async {
-      onCall((_) async =>
-          throw PlatformException(code: 'user-cancelled', message: 'nope'));
-      expect(
-        doCreate,
-        throwsA(isA<MaktubPasskeyException>()
-            .having((e) => e.code, 'code', 'user-cancelled')
-            .having((e) => e.message, 'message', 'nope')),
-      );
-    });
+    test(
+      'PlatformException → MaktubPasskeyException carrying code+message',
+      () async {
+        onCall(
+          (_) async =>
+              throw PlatformException(code: 'user-cancelled', message: 'nope'),
+        );
+        expect(
+          doCreate,
+          throwsA(
+            isA<MaktubPasskeyException>()
+                .having((e) => e.code, 'code', 'user-cancelled')
+                .having((e) => e.message, 'message', 'nope'),
+          ),
+        );
+      },
+    );
 
     test('missing plugin → not-implemented MaktubPasskeyException', () async {
       // No handler installed → MissingPluginException.
       expect(
         doCreate,
-        throwsA(isA<MaktubPasskeyException>()
-            .having((e) => e.code, 'code', 'not-implemented')),
+        throwsA(
+          isA<MaktubPasskeyException>().having(
+            (e) => e.code,
+            'code',
+            'not-implemented',
+          ),
+        ),
       );
     });
 
@@ -175,8 +196,13 @@ void main() {
       onCall((_) async => null);
       expect(
         doCreate,
-        throwsA(isA<MaktubPasskeyException>()
-            .having((e) => e.code, 'code', 'null-result')),
+        throwsA(
+          isA<MaktubPasskeyException>().having(
+            (e) => e.code,
+            'code',
+            'null-result',
+          ),
+        ),
       );
     });
   });
@@ -184,11 +210,11 @@ void main() {
   // ── assertWithPrf ──────────────────────────────────────────────────────────
   group('assertWithPrf', () {
     Map<String, Object?> reply({Object? prf}) => {
-          'signature': bytes(64),
-          'authenticatorData': bytes(37),
-          'clientDataJson': bytes(0),
-          if (prf != null) 'prfOutput': prf,
-        };
+      'signature': bytes(64),
+      'authenticatorData': bytes(37),
+      'clientDataJson': bytes(0),
+      if (prf != null) 'prfOutput': prf,
+    };
 
     test('surfaces the 32-byte PRF output and marshals args', () async {
       final prf = bytes(32, 0xAB);
@@ -213,11 +239,13 @@ void main() {
 
     test('surfaces the chosen credentialId/userHandle from a discoverable '
         'assertion (#2)', () async {
-      onCall((_) async => {
-            ...reply(prf: bytes(32)),
-            'credentialId': 'picked-cred',
-            'userHandle': 'picked-user',
-          });
+      onCall(
+        (_) async => {
+          ...reply(prf: bytes(32)),
+          'credentialId': 'picked-cred',
+          'userHandle': 'picked-user',
+        },
+      );
       final a = await MaktubPasskey().assertWithPrf(
         relyingPartyId: 'maktub.it',
         challenge: bytes(32),
@@ -239,11 +267,13 @@ void main() {
       expect(a.credentialId, isNull);
       expect(a.userHandle, isNull);
 
-      onCall((_) async => {
-            ...reply(prf: bytes(32)),
-            'credentialId': 42,
-            'userHandle': <int>[1, 2, 3],
-          });
+      onCall(
+        (_) async => {
+          ...reply(prf: bytes(32)),
+          'credentialId': 42,
+          'userHandle': <int>[1, 2, 3],
+        },
+      );
       final b = await MaktubPasskey().assertWithPrf(
         relyingPartyId: 'maktub.it',
         challenge: bytes(32),
@@ -253,31 +283,35 @@ void main() {
       expect(b.userHandle, isNull);
     });
 
-    test('marshals BE/BS flags; missing flags default to false (defensive)',
-        () async {
-      onCall((_) async => {
+    test(
+      'marshals BE/BS flags; missing flags default to false (defensive)',
+      () async {
+        onCall(
+          (_) async => {
             ...reply(prf: bytes(32)),
             'backupEligible': true,
             'backupState': true,
-          });
-      final a = await MaktubPasskey().assertWithPrf(
-        relyingPartyId: 'maktub.it',
-        challenge: bytes(32),
-        prfSalt: bytes(32),
-      );
-      expect(a.backupEligible, isTrue);
-      expect(a.backupState, isTrue);
+          },
+        );
+        final a = await MaktubPasskey().assertWithPrf(
+          relyingPartyId: 'maktub.it',
+          challenge: bytes(32),
+          prfSalt: bytes(32),
+        );
+        expect(a.backupEligible, isTrue);
+        expect(a.backupState, isTrue);
 
-      // A reply without the flags reads as false, never a phantom recoverable.
-      onCall((_) async => reply(prf: bytes(32)));
-      final b = await MaktubPasskey().assertWithPrf(
-        relyingPartyId: 'maktub.it',
-        challenge: bytes(32),
-        prfSalt: bytes(32),
-      );
-      expect(b.backupEligible, isFalse);
-      expect(b.backupState, isFalse);
-    });
+        // A reply without the flags reads as false, never a phantom recoverable.
+        onCall((_) async => reply(prf: bytes(32)));
+        final b = await MaktubPasskey().assertWithPrf(
+          relyingPartyId: 'maktub.it',
+          challenge: bytes(32),
+          prfSalt: bytes(32),
+        );
+        expect(b.backupEligible, isFalse);
+        expect(b.backupState, isFalse);
+      },
+    );
 
     test('null prfOutput when native omits it', () async {
       onCall((_) async => reply());
@@ -307,19 +341,22 @@ void main() {
           challenge: bytes(32),
           prfSalt: bytes(32),
         ),
-        throwsA(isA<MaktubPasskeyException>()
-            .having((e) => e.code, 'code', 'no-prf')),
+        throwsA(
+          isA<MaktubPasskeyException>().having((e) => e.code, 'code', 'no-prf'),
+        ),
       );
     });
   });
 
   // ── MaktubPasskeyException ──────────────────────────────────────────────────
-  test('MaktubPasskeyException exposes code+message and a readable toString',
-      () {
-    const e = MaktubPasskeyException('x-code', 'x-message');
-    expect(e.code, 'x-code');
-    expect(e.message, 'x-message');
-    expect(e.toString(), contains('x-code'));
-    expect(e.toString(), contains('x-message'));
-  });
+  test(
+    'MaktubPasskeyException exposes code+message and a readable toString',
+    () {
+      const e = MaktubPasskeyException('x-code', 'x-message');
+      expect(e.code, 'x-code');
+      expect(e.message, 'x-message');
+      expect(e.toString(), contains('x-code'));
+      expect(e.toString(), contains('x-message'));
+    },
+  );
 }

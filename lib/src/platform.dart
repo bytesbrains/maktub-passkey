@@ -51,17 +51,16 @@ abstract class MaktubPasskeyPlatform {
 /// directly without re-implementing it.
 class MethodChannelMaktubPasskey extends MaktubPasskeyPlatform {
   const MethodChannelMaktubPasskey({MethodChannel? channel})
-      : _channel = channel ?? const MethodChannel('it.maktub.passkey');
+    : _channel = channel ?? const MethodChannel('it.maktub.passkey');
 
   final MethodChannel _channel;
 
   @override
   Future<PrfCapability> probePrf({required String relyingPartyId}) async {
     try {
-      final r = await _channel.invokeMapMethod<String, dynamic>(
-        'probePrf',
-        {'rpId': relyingPartyId},
-      );
+      final r = await _channel.invokeMapMethod<String, dynamic>('probePrf', {
+        'rpId': relyingPartyId,
+      });
       if (r == null) return const PrfCapability.unavailable();
       return _capabilityFrom(r);
     } on PlatformException {
@@ -115,7 +114,8 @@ class MethodChannelMaktubPasskey extends MaktubPasskeyPlatform {
       // The credential the platform actually used — the only way to identify it
       // after a discoverable assertion (#2). Defensive: a non-String reads as
       // null rather than surfacing a garbage id.
-      credentialId: r['credentialId'] is String ? r['credentialId'] as String : null,
+      credentialId:
+          r['credentialId'] is String ? r['credentialId'] as String : null,
       userHandle: r['userHandle'] is String ? r['userHandle'] as String : null,
       // Defensive: a missing/garbage flag reads as false so a malformed native
       // map can never claim a recoverable (BE∧BS) credential.
@@ -127,10 +127,10 @@ class MethodChannelMaktubPasskey extends MaktubPasskeyPlatform {
   /// Defensive: any non-`true` value (missing key, `1`, `"yes"`, null) is read
   /// as false, so a malformed native map can never claim a recoverable key.
   static PrfCapability _capabilityFrom(Map<String, dynamic> r) => PrfCapability(
-        prfSupported: r['prfSupported'] == true,
-        backupEligible: r['backupEligible'] == true,
-        backupState: r['backupState'] == true,
-      );
+    prfSupported: r['prfSupported'] == true,
+    backupEligible: r['backupEligible'] == true,
+    backupState: r['backupState'] == true,
+  );
 
   Future<Map<String, dynamic>> _invoke(
     String method,
