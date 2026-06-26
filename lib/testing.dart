@@ -38,13 +38,13 @@ class FakeMaktubPasskey extends MaktubPasskeyPlatform {
     this.failProbe = false,
     MaktubPasskeyException? failCreate,
     MaktubPasskeyException? failAssert,
-  })  : assert(
-          !kReleaseMode,
-          'FakeMaktubPasskey must never run in a release build (#307 C1).',
-        ),
-        _seed = syncedSeed ?? _defaultSeed,
-        _failCreate = failCreate,
-        _failAssert = failAssert {
+  }) : assert(
+         !kReleaseMode,
+         'FakeMaktubPasskey must never run in a release build (#307 C1).',
+       ),
+       _seed = syncedSeed ?? _defaultSeed,
+       _failCreate = failCreate,
+       _failAssert = failAssert {
     assert(_seed.length == 32, 'syncedSeed must be 32 bytes');
   }
 
@@ -69,8 +69,9 @@ class FakeMaktubPasskey extends MaktubPasskeyPlatform {
   final MaktubPasskeyException? _failCreate;
   final MaktubPasskeyException? _failAssert;
 
-  static final Uint8List _defaultSeed =
-      Uint8List.fromList(List<int>.generate(32, (i) => (i * 7 + 13) & 0xff));
+  static final Uint8List _defaultSeed = Uint8List.fromList(
+    List<int>.generate(32, (i) => (i * 7 + 13) & 0xff),
+  );
 
   @override
   Future<PrfCapability> probePrf({required String relyingPartyId}) async =>
@@ -87,8 +88,8 @@ class FakeMaktubPasskey extends MaktubPasskeyPlatform {
     if (_failCreate != null) throw _failCreate;
     return PasskeyCreation(
       credentialId: 'fake-cred',
-      attestationObject: attestationObject ??
-          Uint8List.fromList(List<int>.filled(91, 4)),
+      attestationObject:
+          attestationObject ?? Uint8List.fromList(List<int>.filled(91, 4)),
       capability: capability,
     );
   }

@@ -28,7 +28,8 @@ import 'package:flutter/services.dart';
 import 'src/platform.dart';
 import 'src/types.dart';
 
-export 'src/platform.dart' show MaktubPasskeyPlatform, MethodChannelMaktubPasskey;
+export 'src/platform.dart'
+    show MaktubPasskeyPlatform, MethodChannelMaktubPasskey;
 export 'src/types.dart';
 
 class MaktubPasskey {
@@ -36,12 +37,15 @@ class MaktubPasskey {
   /// [platform] (e.g. a fake) or a custom [channel] may be supplied — the
   /// channel form preserves the original constructor for existing callers.
   MaktubPasskey({MaktubPasskeyPlatform? platform, MethodChannel? channel})
-      : assert(platform == null || channel == null,
-            'pass either a platform or a channel, not both'),
-        _platform = platform ??
-            (channel != null
-                ? MethodChannelMaktubPasskey(channel: channel)
-                : null);
+    : assert(
+        platform == null || channel == null,
+        'pass either a platform or a channel, not both',
+      ),
+      _platform =
+          platform ??
+          (channel != null
+              ? MethodChannelMaktubPasskey(channel: channel)
+              : null);
 
   /// Resolved lazily so a test that swaps [MaktubPasskeyPlatform.instance]
   /// after constructing still sees the swap.
@@ -62,14 +66,13 @@ class MaktubPasskey {
     required String userName,
     required Uint8List userId,
     required Uint8List challenge,
-  }) =>
-      _p.create(
-        relyingPartyId: relyingPartyId,
-        relyingPartyName: relyingPartyName,
-        userName: userName,
-        userId: userId,
-        challenge: challenge,
-      );
+  }) => _p.create(
+    relyingPartyId: relyingPartyId,
+    relyingPartyName: relyingPartyName,
+    userName: userName,
+    userId: userId,
+    challenge: challenge,
+  );
 
   /// Get an assertion AND evaluate PRF with [prfSalt] (the fixed 32-byte
   /// `eval.first`), returning the signature plus the 32-byte PRF output.
@@ -78,11 +81,10 @@ class MaktubPasskey {
     required Uint8List challenge,
     required Uint8List prfSalt,
     String? credentialId,
-  }) =>
-      _p.assertWithPrf(
-        relyingPartyId: relyingPartyId,
-        challenge: challenge,
-        prfSalt: prfSalt,
-        credentialId: credentialId,
-      );
+  }) => _p.assertWithPrf(
+    relyingPartyId: relyingPartyId,
+    challenge: challenge,
+    prfSalt: prfSalt,
+    credentialId: credentialId,
+  );
 }
