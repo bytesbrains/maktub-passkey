@@ -4,21 +4,20 @@
 /// This plugin owns the *whole* passkey flow on purpose: PRF must be requested
 /// inside the same `makeCredential` (creation) and `getAssertion` (eval) calls,
 /// so it can't be a PRF-only add-on bolted onto another plugin's credential.
-/// Its job is narrow — return the bytes Maktub needs to reproduce a smartWallet
-/// reading key from the passkey:
+/// Its job is narrow — return the bytes an app needs to reproduce a
+/// passkey-derived secret across the user's synced devices:
 ///
 ///   * [create]        — make a credential WITH PRF enabled; report capability.
 ///   * [assertWithPrf] — sign AND evaluate PRF with a fixed salt → 32-byte output.
 ///   * [probePrf]      — capability only (PRF supported? backup-eligible/synced?).
 ///
-/// The 32-byte PRF output + capability flags feed the app-side derivation and
-/// the fail-closed creation gate (Maktub's `probePasskeyPrf()` seam). See the
-/// reading-key spec (maktub#304) and the PRD (#306; umbrella #301).
+/// The 32-byte PRF output + capability flags feed the app-side key derivation
+/// and a fail-closed creation gate. See the README for usage and platform setup.
 ///
 /// The actual work is delegated to a [MaktubPasskeyPlatform] — the real native
 /// [MethodChannelMaktubPasskey] in production, a `FakeMaktubPasskey` (in the
 /// test-only `package:maktub_passkey/testing.dart`) under test. The native
-/// iOS/Android PRF impls live behind the method channel (#306); on a simulator
+/// iOS/Android PRF impls live behind the method channel; on a simulator
 /// or an unsupported OS they report PRF unavailable, so the app's gate stays
 /// fail-closed.
 library;
@@ -32,6 +31,30 @@ export 'src/platform.dart'
     show MaktubPasskeyPlatform, MethodChannelMaktubPasskey;
 export 'src/types.dart';
 
+/// Entry point for passkey create/assert with the WebAuthn PRF
+/// (`hmac-secret`) extension.
+///
+/// Derive a stable 32-byte secret from a synced passkey and reproduce it on the
+/// user's other synced devices. Always gate on [PrfCapability.recoverable]
+/// before relying on a derived secret — the plugin is fail-closed.
+///
+/// ```dart
+/// final pk = MaktubPasskey();
+/// const rpId = 'example.com'; // must match your Associated Domains / assetlinks
+///
+/// final cap = await pk.probePrf(relyingPartyId: rpId);
+/// if (!cap.recoverable) return; // no PRF, or credential not synced
+///
+/// final a = await pk.assertWithPrf(
+///   relyingPartyId: rpId,
+///   challenge: challengeBytes, // 32 random bytes
+///   prfSalt: saltBytes,        // your fixed 32-byte salt
+/// );
+/// final Uint8List? secret = a.prfOutput; // 32 bytes, or null
+/// ```
+///
+/// See the README for required platform setup (iOS Associated Domains, Android
+/// Digital Asset Links) and the cross-device recovery recipe.
 class MaktubPasskey {
   /// Uses the ambient [MaktubPasskeyPlatform.instance] by default. A specific
   /// [platform] (e.g. a fake) or a custom [channel] may be supplied — the
