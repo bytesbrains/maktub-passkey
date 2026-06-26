@@ -263,11 +263,17 @@ private final class PasskeyFlow: NSObject,
       "clientDataJson": FlutterStandardTypedData(bytes: asn.rawClientDataJSON),
       // The credential the user actually picked — required so a discoverable
       // assertion (no allowedCredentials) can bind later PRF recovery to it (#2).
+      // `credentialID` is non-optional `Data`; always present.
       "credentialId": asn.credentialID.base64URLEncodedString(),
-      "userHandle": asn.userID.base64URLEncodedString(),
       "backupEligible": be,
       "backupState": bs,
     ]
+    // `userID` is an IUO (`Data!`) like `signature`/`rawAuthenticatorData` above
+    // and is nil for a targeted assertion that returns no user handle — force-
+    // evaluating it would crash. Omit the key when absent, mirroring Android.
+    if let userID = asn.userID, !userID.isEmpty {
+      payload["userHandle"] = userID.base64URLEncodedString()
+    }
     if let prfOutput {
       payload["prfOutput"] = FlutterStandardTypedData(bytes: prfOutput)
     }
