@@ -22,8 +22,10 @@ the common Flutter passkey plugins don't expose.
 - **`create`** a platform passkey with the **PRF extension enabled at creation**
   (PRF can't be retrofitted onto a credential made without it).
 - **`assertWithPrf`** — get an assertion *and* evaluate PRF with a caller-chosen
-  32-byte salt, returning the **32-byte PRF output** plus the credential's
-  backup flags.
+  32-byte salt, returning the **32-byte PRF output**, the credential's backup
+  flags, and the **`credentialId` / `userHandle` the platform actually used** —
+  so a *discoverable* assertion can learn which passkey the user picked and bind
+  later recovery to it (since `0.1.0-dev.3`).
 - **`probePrf`** — a capability check (is PRF available, is the credential
   backup-eligible and synced?).
 
@@ -45,7 +47,7 @@ is reported unavailable and the plugin fails closed.
 
 ```yaml
 dependencies:
-  maktub_passkey: ^0.1.0-dev.1   # pre-release: pin explicitly
+  maktub_passkey: 0.1.0-dev.3   # pre-release: pin explicitly (no caret — won't auto-adopt)
 ```
 
 ## Usage
@@ -84,7 +86,9 @@ final Uint8List? secret = a.prfOutput; // 32 bytes of key material (or null)
 // lists every RP passkey and the user picks one), the chosen credential is
 // reported back so you can bind later recovery to it:
 final String? chosenId = a.credentialId; // base64url id the platform used
-final String? userHandle = a.userHandle; // base64url user handle, if returned
+final String? userHandle = a.userHandle; // base64url user handle, or null
+// `userHandle` is null when the platform returns none (common for a targeted
+// assertion); `credentialId` echoes the requested id for a targeted assertion.
 ```
 
 ## Recoverability rule (and why it's fail-closed)
