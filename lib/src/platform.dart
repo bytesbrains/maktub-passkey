@@ -112,6 +112,11 @@ class MethodChannelMaktubPasskey extends MaktubPasskeyPlatform {
       authenticatorData: r['authenticatorData'] as Uint8List,
       clientDataJson: r['clientDataJson'] as Uint8List,
       prfOutput: prf is Uint8List ? prf : null,
+      // The credential the platform actually used — the only way to identify it
+      // after a discoverable assertion (#2). Defensive: a non-String reads as
+      // null rather than surfacing a garbage id.
+      credentialId: r['credentialId'] is String ? r['credentialId'] as String : null,
+      userHandle: r['userHandle'] is String ? r['userHandle'] as String : null,
       // Defensive: a missing/garbage flag reads as false so a malformed native
       // map can never claim a recoverable (BE∧BS) credential.
       backupEligible: r['backupEligible'] == true,

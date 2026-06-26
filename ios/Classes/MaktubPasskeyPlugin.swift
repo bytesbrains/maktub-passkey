@@ -261,6 +261,10 @@ private final class PasskeyFlow: NSObject,
       "signature": FlutterStandardTypedData(bytes: asn.signature ?? Data()),
       "authenticatorData": FlutterStandardTypedData(bytes: authData),
       "clientDataJson": FlutterStandardTypedData(bytes: asn.rawClientDataJSON),
+      // The credential the user actually picked — required so a discoverable
+      // assertion (no allowedCredentials) can bind later PRF recovery to it (#2).
+      "credentialId": asn.credentialID.base64URLEncodedString(),
+      "userHandle": asn.userID.base64URLEncodedString(),
       "backupEligible": be,
       "backupState": bs,
     ]

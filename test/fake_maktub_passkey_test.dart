@@ -33,6 +33,27 @@ void main() {
       expect(a.prfOutput!.length, 32);
     });
 
+    test('surfaces credentialId/userHandle: echoes a targeted id, defaults a '
+        'discoverable one (#2)', () async {
+      final fake = FakeMaktubPasskey(userHandle: 'user-42');
+      final targeted = await fake.assertWithPrf(
+        relyingPartyId: 'maktub.it',
+        challenge: Uint8List(32),
+        prfSalt: salt,
+        credentialId: 'cred-abc',
+      );
+      expect(targeted.credentialId, 'cred-abc'); // echoed back
+      expect(targeted.userHandle, 'user-42');
+
+      final discoverable = await fake.assertWithPrf(
+        relyingPartyId: 'maktub.it',
+        challenge: Uint8List(32),
+        prfSalt: salt,
+      );
+      expect(discoverable.credentialId, isNotNull); // a chosen id is reported
+      expect(discoverable.userHandle, 'user-42');
+    });
+
     test('same syncedSeed + same salt → identical PRF (new-device recovery)',
         () async {
       final seed = Uint8List.fromList(List<int>.filled(32, 0x5A));

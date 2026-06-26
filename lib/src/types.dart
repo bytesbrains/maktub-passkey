@@ -65,6 +65,8 @@ class PasskeyAssertion {
     required this.authenticatorData,
     required this.clientDataJson,
     required this.prfOutput,
+    this.credentialId,
+    this.userHandle,
     this.backupEligible = false,
     this.backupState = false,
   });
@@ -75,6 +77,19 @@ class PasskeyAssertion {
 
   /// 32-byte WebAuthn PRF (`hmac-secret`) output, or null if unavailable.
   final Uint8List? prfOutput;
+
+  /// Base64url id (`rawId`) of the credential the platform actually used.
+  ///
+  /// For a **targeted** assertion (caller passed a `credentialId`) this echoes
+  /// that credential. For a **discoverable** assertion (`credentialId: null`,
+  /// the platform sheet let the user pick) this is the ONLY way to learn which
+  /// credential was chosen — required to bind a later PRF reading-key recovery
+  /// to that specific credential (#2). Null only if the platform omitted it.
+  final String? credentialId;
+
+  /// Base64url user handle (`response.userHandle` / iOS `userID`) of the chosen
+  /// credential, when the platform returns it. Null if absent.
+  final String? userHandle;
 
   /// `BE` flag read from the authenticator-data of THIS assertion — the
   /// credential is backup-eligible (can sync off-device).
