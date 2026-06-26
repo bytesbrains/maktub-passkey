@@ -1,13 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-dev.3
 
 - `PasskeyAssertion` now surfaces `credentialId` and `userHandle` (base64url) —
   the credential the platform actually used. For a discoverable assertion
   (`credentialId: null`) this is the only way to learn which credential the user
   picked, unblocking credential-bound PRF recovery (#2). Both native sides report
   it (iOS `credentialID`/`userID`; Android assertion `id`/`response.userHandle`).
-  Additive: existing callers are unaffected.
+  `userHandle` is nullable — it is omitted when the platform returns no user
+  handle (e.g. a targeted assertion). Additive: existing callers are unaffected.
 
 ## 0.1.0-dev.2
 
