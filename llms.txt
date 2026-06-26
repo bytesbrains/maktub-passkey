@@ -1,0 +1,97 @@
+# maktub_passkey
+
+> A Flutter plugin for the WebAuthn PRF (`hmac-secret`) extension. It derives a
+> stable, per-credential 32-byte secret from a synced passkey and reproduces the
+> same secret on the user's other synced devices (iOS 18+ / Android API 28+).
+> Use it to re-derive an end-to-end-encryption key after a device change without
+> server-side key escrow. It is NOT a passkey login/auth library.
+
+## When to use
+
+- USE when: you need a passkey-derived secret that reproduces across a user's
+  synced devices (e.g. recover an E2EE key on a new phone).
+- DO NOT use when: you need passkey sign-in/auth flows, device-bound hardware
+  keys, or support below iOS 18 / Android API 28. Use a full WebAuthn stack for
+  authentication.
+
+## Install
+
+```yaml
+dependencies:
+  maktub_passkey: 0.1.0-dev.3 # pre-release: pin exactly; `^` will not select it
+```
+
+## Required platform setup (calls fail without it)
+
+Passkeys are domain-bound. `relyingPartyId` must be a registrable HTTPS domain
+(no scheme/port) that matches:
+- iOS: Associated Domains entitlement `webcredentials:example.com` + an
+  `apple-app-site-association` file with `{"webcredentials":{"apps":["TEAMID.bundleId"]}}`.
+- Android: `/.well-known/assetlinks.json` with relation
+  `delegate_permission/common.get_login_creds`, your package name, and the
+  SHA-256 of every signing key (including the Play App Signing key).
+
+## API (entry point: `MaktubPasskey`)
+
+- `Future<PrfCapability> probePrf({required String relyingPartyId})`
+  - Never throws; fails closed to `unavailable`.
+  - `PrfCapability`: `prfSupported`, `backupEligible`, `backupState`, and the
+    derived getter `recoverable` (true only if all three hold).
+- `Future<PasskeyCreation> create({required String relyingPartyId, required String relyingPartyName, required String userName, required Uint8List userId, required Uint8List challenge})`
+  - Creates a passkey with PRF enabled at creation (PRF cannot be added later).
+  - Throws `MaktubPasskeyException` on failure.
+  - `PasskeyCreation`: `credentialId` (base64url String), `attestationObject`
+    (Uint8List), `capability` (PrfCapability).
+- `Future<PasskeyAssertion> assertWithPrf({required String relyingPartyId, required Uint8List challenge, required Uint8List prfSalt, String? credentialId})`
+  - Signs and evaluates PRF with `prfSalt` (your fixed 32-byte salt).
+  - Omit `credentialId` for a discoverable assertion (user picks the passkey);
+    pass it for a targeted one.
+  - Throws `MaktubPasskeyException`.
+  - `PasskeyAssertion`: `prfOutput` (Uint8List? — 32 bytes, null if PRF
+    unavailable), `signature`, `authenticatorData`, `clientDataJson`,
+    `credentialId` (String? — the credential the platform actually used),
+    `userHandle` (String? — null when the platform returns none, common for a
+    targeted assertion), `backupEligible` (bool), `backupState` (bool).
+
+## Core invariants
+
+- Determinism: the same `(credential, prfSalt)` always yields the same 32-byte
+  `prfOutput`. Feed it through a KDF (e.g. HKDF-SHA256) for your context keys.
+- Fail-closed recoverability: a derived secret only reproduces on a new device if
+  the credential itself syncs there. ALWAYS gate on `PrfCapability.recoverable`
+  (PRF supported AND `backupEligible` AND `backupState`) before relying on a key.
+  A device-bound credential (`backupEligible == false`) is treated as NOT
+  recoverable even though PRF works locally.
+
+## Minimal example
+
+```dart
+import 'package:maktub_passkey/maktub_passkey.dart';
+
+final pk = MaktubPasskey();
+const rpId = 'example.com';
+
+final cap = await pk.probePrf(relyingPartyId: rpId);
+if (!cap.recoverable) return; // no PRF, or credential not synced
+
+final a = await pk.assertWithPrf(
+  relyingPartyId: rpId,
+  challenge: challengeBytes, // 32 random bytes
+  prfSalt: saltBytes,        // your fixed 32-byte salt
+);
+final Uint8List? secret = a.prfOutput; // 32 bytes, or null
+```
+
+## Testing
+
+`package:maktub_passkey/testing.dart` ships `FakeMaktubPasskey`, a deterministic
+test-only backend. Two fakes with the same `syncedSeed` model two synced devices
+(same seed + same salt -> identical PRF). It asserts it is never run in a release
+build. Set `MaktubPasskeyPlatform.instance = FakeMaktubPasskey(syncedSeed: seed)`
+in tests and restore it in `tearDown`.
+
+## Links
+
+- pub.dev: https://pub.dev/packages/maktub_passkey
+- Repository: https://github.com/bytesbrains/maktub-passkey
+- Changelog: https://github.com/bytesbrains/maktub-passkey/blob/main/CHANGELOG.md
