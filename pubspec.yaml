@@ -14,7 +14,8 @@ topics:
   - passkey
   - webauthn
   - prf
-  - authentication
+  - encryption
+  - credentials
 
 environment:
   sdk: ^3.11.4
