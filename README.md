@@ -17,6 +17,25 @@ the common Flutter passkey plugins don't expose.
 > recovery on your own synced devices before relying on it.** Because it's a
 > pre-release, `^` version constraints won't auto-select it — opt in explicitly.
 
+## When to use this
+
+Reach for this when you need a **stable secret derived from a passkey that
+reproduces across a user's synced devices** — e.g. re-deriving an end-to-end
+encryption key on a new phone with no server-side escrow. That cross-device
+*reproducibility* is the WebAuthn PRF (`hmac-secret`) capability, and it's the
+specific gap this plugin fills.
+
+It is **not** a passkey *login* library. If you only need authentication
+(register / sign-in against your server), use a full WebAuthn stack instead —
+this plugin deliberately exposes just the create / assert / PRF primitives needed
+to derive and reproduce key material, paired with a fail-closed recoverability
+gate.
+
+- **Use it when** you want a passkey-derived, cross-device-reproducible secret
+  and can target iOS 18+ / Android API 28+.
+- **Look elsewhere when** you need passkey auth flows, device-bound (non-synced)
+  hardware keys, or support for older OS versions.
+
 ## What it does
 
 - **`create`** a platform passkey with the **PRF extension enabled at creation**
@@ -49,6 +68,59 @@ is reported unavailable and the plugin fails closed.
 dependencies:
   maktub_passkey: 0.1.0-dev.3   # pre-release: pin explicitly (no caret — won't auto-adopt)
 ```
+
+## Platform setup (required)
+
+Passkeys are bound to a **domain**: the platform refuses to create or assert one
+unless your app is verifiably associated with the `relyingPartyId` you pass.
+Skip this and calls fail (or the system sheet never appears) — it is not
+optional. The `relyingPartyId` must be a registrable HTTPS domain
+(e.g. `example.com` — no scheme, no port) and must match the files below.
+
+### iOS — Associated Domains
+
+1. Add the **Associated Domains** capability in Xcode and list your RP id:
+
+   ```xml
+   <!-- Runner.entitlements -->
+   <key>com.apple.developer.associated-domains</key>
+   <array>
+     <string>webcredentials:example.com</string>
+   </array>
+   ```
+
+2. Host an **Apple App Site Association** file at
+   `https://example.com/.well-known/apple-app-site-association`, served as
+   `application/json` with no redirect:
+
+   ```json
+   { "webcredentials": { "apps": ["ABCDE12345.com.example.app"] } }
+   ```
+
+   `ABCDE12345` is your Team ID, `com.example.app` your bundle id.
+
+### Android — Digital Asset Links
+
+Host an **assetlinks.json** at
+`https://example.com/.well-known/assetlinks.json` declaring your app and the
+certificate(s) it is signed with:
+
+```json
+[
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.example.app",
+      "sha256_cert_fingerprints": ["AB:CD:EF:..."]
+    }
+  }
+]
+```
+
+List the SHA-256 fingerprint of **every** signing key your users receive — your
+upload key **and** the Play App Signing key (Google re-signs the app on upload),
+or verification fails in production.
 
 ## Usage
 
