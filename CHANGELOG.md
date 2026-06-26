@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.0-dev.4
+
+Docs, example, and tooling — **no API or behavior changes** since `0.1.0-dev.3`.
+
+- Docs: a required platform-setup guide (iOS Associated Domains, Android Digital
+  Asset Links), a "when to use this" use-case section, a cross-device key-recovery
+  recipe, an API summary table, and status badges.
+- Agent/LLM friendliness: add `llms.txt` (a self-contained API reference) and
+  document the `MaktubPasskey` entry point with a runnable example.
+- Add an `example/` app exercising probe → create → assertWithPrf.
+- Add `SECURITY.md` (private vulnerability reporting).
+- Tooling: GitHub Actions CI (analyze + test, including the example) and
+  Dependabot; apply `dart format`.
+
 ## 0.1.0-dev.3
 
 - `PasskeyAssertion` now surfaces `credentialId` and `userHandle` (base64url) —

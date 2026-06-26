@@ -1,5 +1,11 @@
 # maktub_passkey
 
+[![pub package](https://img.shields.io/pub/v/maktub_passkey.svg)](https://pub.dev/packages/maktub_passkey)
+[![pub points](https://img.shields.io/pub/points/maktub_passkey.svg)](https://pub.dev/packages/maktub_passkey/score)
+[![likes](https://img.shields.io/pub/likes/maktub_passkey.svg)](https://pub.dev/packages/maktub_passkey/score)
+[![CI](https://github.com/bytesbrains/maktub-passkey/actions/workflows/ci.yml/badge.svg)](https://github.com/bytesbrains/maktub-passkey/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Passkey (WebAuthn / P-256) **create + assert** for Flutter, plus the WebAuthn
 **PRF (`hmac-secret`) extension** — so you can derive a **stable, per-credential
 secret** from a synced passkey and reproduce it on another of the user's devices
@@ -17,6 +23,25 @@ the common Flutter passkey plugins don't expose.
 > recovery on your own synced devices before relying on it.** Because it's a
 > pre-release, `^` version constraints won't auto-select it — opt in explicitly.
 
+## When to use this
+
+Reach for this when you need a **stable secret derived from a passkey that
+reproduces across a user's synced devices** — e.g. re-deriving an end-to-end
+encryption key on a new phone with no server-side escrow. That cross-device
+*reproducibility* is the WebAuthn PRF (`hmac-secret`) capability, and it's the
+specific gap this plugin fills.
+
+It is **not** a passkey *login* library. If you only need authentication
+(register / sign-in against your server), use a full WebAuthn stack instead —
+this plugin deliberately exposes just the create / assert / PRF primitives needed
+to derive and reproduce key material, paired with a fail-closed recoverability
+gate.
+
+- **Use it when** you want a passkey-derived, cross-device-reproducible secret
+  and can target iOS 18+ / Android API 28+.
+- **Look elsewhere when** you need passkey auth flows, device-bound (non-synced)
+  hardware keys, or support for older OS versions.
+
 ## What it does
 
 - **`create`** a platform passkey with the **PRF extension enabled at creation**
@@ -32,6 +57,20 @@ the common Flutter passkey plugins don't expose.
 The 32-byte output is uniform key material — feed it into your own KDF (HKDF,
 etc.) to derive whatever keys you need. The same `(credential, salt)` yields the
 same output, which is what makes the derived key reproducible on a synced device.
+
+## API
+
+| Method | Returns | Errors / null |
+|---|---|---|
+| `probePrf({relyingPartyId})` | `PrfCapability` — `prfSupported`, `backupEligible`, `backupState`, `recoverable` | never throws; fails closed to `unavailable` |
+| `create({relyingPartyId, relyingPartyName, userName, userId, challenge})` | `PasskeyCreation` — `credentialId`, `attestationObject`, `capability` | throws `MaktubPasskeyException` |
+| `assertWithPrf({relyingPartyId, challenge, prfSalt, credentialId?})` | `PasskeyAssertion` — `prfOutput`, `signature`, `credentialId`, `userHandle`, `backupEligible`, `backupState` | throws `MaktubPasskeyException`; `prfOutput` is `null` if PRF is unavailable |
+
+All byte params are `Uint8List`; ids and handles are base64url `String`. `prfSalt`
+is your fixed 32-byte salt — the same `(credential, salt)` always yields the same
+32-byte `prfOutput`. Omit `credentialId` for a **discoverable** assertion (the
+platform lists every RP passkey and the user picks); pass it for a **targeted**
+one. Always gate on `PrfCapability.recoverable` before relying on a secret.
 
 ## Platform support
 
@@ -49,6 +88,59 @@ is reported unavailable and the plugin fails closed.
 dependencies:
   maktub_passkey: 0.1.0-dev.3   # pre-release: pin explicitly (no caret — won't auto-adopt)
 ```
+
+## Platform setup (required)
+
+Passkeys are bound to a **domain**: the platform refuses to create or assert one
+unless your app is verifiably associated with the `relyingPartyId` you pass.
+Skip this and calls fail (or the system sheet never appears) — it is not
+optional. The `relyingPartyId` must be a registrable HTTPS domain
+(e.g. `example.com` — no scheme, no port) and must match the files below.
+
+### iOS — Associated Domains
+
+1. Add the **Associated Domains** capability in Xcode and list your RP id:
+
+   ```xml
+   <!-- Runner.entitlements -->
+   <key>com.apple.developer.associated-domains</key>
+   <array>
+     <string>webcredentials:example.com</string>
+   </array>
+   ```
+
+2. Host an **Apple App Site Association** file at
+   `https://example.com/.well-known/apple-app-site-association`, served as
+   `application/json` with no redirect:
+
+   ```json
+   { "webcredentials": { "apps": ["ABCDE12345.com.example.app"] } }
+   ```
+
+   `ABCDE12345` is your Team ID, `com.example.app` your bundle id.
+
+### Android — Digital Asset Links
+
+Host an **assetlinks.json** at
+`https://example.com/.well-known/assetlinks.json` declaring your app and the
+certificate(s) it is signed with:
+
+```json
+[
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.example.app",
+      "sha256_cert_fingerprints": ["AB:CD:EF:..."]
+    }
+  }
+]
+```
+
+List the SHA-256 fingerprint of **every** signing key your users receive — your
+upload key **and** the Play App Signing key (Google re-signs the app on upload),
+or verification fails in production.
 
 ## Usage
 
@@ -90,6 +182,36 @@ final String? userHandle = a.userHandle; // base64url user handle, or null
 // `userHandle` is null when the platform returns none (common for a targeted
 // assertion); `credentialId` echoes the requested id for a targeted assertion.
 ```
+
+## Recipe: re-derive an encryption key on a new device
+
+The whole point — the *same* key comes back on a second synced device, with no
+server escrow. On **both** devices, run the same salt against the user's passkey:
+
+```dart
+// Same fixed, app-wide salt on every device (store it in your app, not secret).
+final salt = utf8.encode('my-app/e2ee-key/v1').sublist(0, 32); // 32 bytes
+
+Future<Uint8List?> deriveKey(MaktubPasskey pk, String rpId) async {
+  final cap = await pk.probePrf(relyingPartyId: rpId);
+  if (!cap.recoverable) return null; // fail closed — don't derive an unrecoverable key
+
+  final a = await pk.assertWithPrf(
+    relyingPartyId: rpId,
+    challenge: freshChallenge(), // 32 random bytes from your server/app
+    prfSalt: salt,
+    // credentialId omitted → discoverable: the user picks their synced passkey
+  );
+  final prf = a.prfOutput;
+  if (prf == null) return null;
+
+  // `prf` is uniform 32-byte key material; run it through HKDF for your context.
+  return hkdfSha256(ikm: prf, info: utf8.encode('aes-gcm-key'), length: 32);
+}
+```
+
+Device A enrolls (`create` once), both A and B call `deriveKey` → identical
+output, because the passkey synced via iCloud Keychain / Google Password Manager.
 
 ## Recoverability rule (and why it's fail-closed)
 

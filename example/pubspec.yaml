@@ -1,0 +1,19 @@
+name: maktub_passkey_example
+description: Example app for maktub_passkey — probe, create, and assertWithPrf.
+publish_to: none
+
+environment:
+  sdk: ^3.11.4
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  maktub_passkey:
+    path: ../
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
