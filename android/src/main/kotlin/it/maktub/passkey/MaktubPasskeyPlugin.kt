@@ -257,6 +257,13 @@ class MaktubPasskeyPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
       "backupEligible" to be,
       "backupState" to bs,
     )
+    // The credential the user actually picked — required so a discoverable
+    // assertion (no allowCredentials) can bind later PRF recovery to it (#2).
+    // `id` is the base64url rawId; `response.userHandle` may be absent.
+    root.optString("id", null)?.takeIf { it.isNotEmpty() }
+      ?.let { out["credentialId"] = it }
+    response?.optString("userHandle", null)?.takeIf { it.isNotEmpty() }
+      ?.let { out["userHandle"] = it }
     if (prfFirst != null && prfFirst.isNotEmpty()) out["prfOutput"] = prfFirst
     return out
   }

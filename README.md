@@ -76,9 +76,15 @@ final a = await pk.assertWithPrf(
   relyingPartyId: rpId,
   challenge: challengeBytes,
   prfSalt: saltBytes,         // your fixed 32-byte salt
-  credentialId: created.credentialId,
+  credentialId: created.credentialId, // omit (null) for a discoverable assertion
 );
 final Uint8List? secret = a.prfOutput; // 32 bytes of key material (or null)
+
+// For a **discoverable** assertion (credentialId: null — the platform sheet
+// lists every RP passkey and the user picks one), the chosen credential is
+// reported back so you can bind later recovery to it:
+final String? chosenId = a.credentialId; // base64url id the platform used
+final String? userHandle = a.userHandle; // base64url user handle, if returned
 ```
 
 ## Recoverability rule (and why it's fail-closed)

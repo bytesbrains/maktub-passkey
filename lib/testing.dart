@@ -34,6 +34,7 @@ class FakeMaktubPasskey extends MaktubPasskeyPlatform {
     ),
     Uint8List? syncedSeed,
     this.attestationObject,
+    this.userHandle = 'fake-user',
     this.failProbe = false,
     MaktubPasskeyException? failCreate,
     MaktubPasskeyException? failAssert,
@@ -55,6 +56,10 @@ class FakeMaktubPasskey extends MaktubPasskeyPlatform {
   /// Optional attestation object returned from [create]; defaults to a fixed
   /// 91-byte filler (its shape is irrelevant to the PRF reading-key tests).
   final Uint8List? attestationObject;
+
+  /// Base64url user handle surfaced from [assertWithPrf] (models the chosen
+  /// credential's `userHandle` / iOS `userID`).
+  final String userHandle;
 
   /// When true, [probePrf] returns [PrfCapability.unavailable] (simulates a
   /// platform/probe failure without throwing).
@@ -105,6 +110,11 @@ class FakeMaktubPasskey extends MaktubPasskeyPlatform {
       authenticatorData: Uint8List.fromList(List<int>.filled(37, 2)),
       clientDataJson: Uint8List(0),
       prfOutput: prf,
+      // Echo a targeted id back; for a discoverable assertion (credentialId
+      // null) surface a stable default — mirroring a real platform reporting
+      // which credential the user picked (#2).
+      credentialId: credentialId ?? 'fake-cred',
+      userHandle: userHandle,
       backupEligible: capability.backupEligible,
       backupState: capability.backupState,
     );

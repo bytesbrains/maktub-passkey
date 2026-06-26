@@ -211,6 +211,48 @@ void main() {
       expect(m['credentialId'], 'cred-9');
     });
 
+    test('surfaces the chosen credentialId/userHandle from a discoverable '
+        'assertion (#2)', () async {
+      onCall((_) async => {
+            ...reply(prf: bytes(32)),
+            'credentialId': 'picked-cred',
+            'userHandle': 'picked-user',
+          });
+      final a = await MaktubPasskey().assertWithPrf(
+        relyingPartyId: 'maktub.it',
+        challenge: bytes(32),
+        prfSalt: bytes(32),
+        // No credentialId → discoverable; the caller learns the picked one.
+      );
+      expect(a.credentialId, 'picked-cred');
+      expect(a.userHandle, 'picked-user');
+    });
+
+    test('credentialId/userHandle default to null when native omits them, and '
+        'a non-String reads as null (defensive)', () async {
+      onCall((_) async => reply(prf: bytes(32)));
+      final a = await MaktubPasskey().assertWithPrf(
+        relyingPartyId: 'maktub.it',
+        challenge: bytes(32),
+        prfSalt: bytes(32),
+      );
+      expect(a.credentialId, isNull);
+      expect(a.userHandle, isNull);
+
+      onCall((_) async => {
+            ...reply(prf: bytes(32)),
+            'credentialId': 42,
+            'userHandle': <int>[1, 2, 3],
+          });
+      final b = await MaktubPasskey().assertWithPrf(
+        relyingPartyId: 'maktub.it',
+        challenge: bytes(32),
+        prfSalt: bytes(32),
+      );
+      expect(b.credentialId, isNull);
+      expect(b.userHandle, isNull);
+    });
+
     test('marshals BE/BS flags; missing flags default to false (defensive)',
         () async {
       onCall((_) async => {
