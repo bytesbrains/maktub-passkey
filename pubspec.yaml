@@ -6,7 +6,7 @@ description: >-
 # Pre-release: PRF cross-device stability is not yet verified on real hardware
 # (see README). Published for discovery/early integration; `^` constraints will
 # NOT auto-adopt a pre-release, so adoption is deliberate until a stable 0.1.0.
-version: 0.1.0-dev.2
+version: 0.1.0-dev.3
 repository: https://github.com/bytesbrains/maktub-passkey
 issue_tracker: https://github.com/bytesbrains/maktub-passkey/issues
 homepage: https://maktub.it
